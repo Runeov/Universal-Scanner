@@ -109,7 +109,7 @@ function synthesizeFieldStatsFromSample(summary) {
   return { fieldStats: fs, scanned: total }
 }
 
-export default function Results({ data }) {
+export default function Results({ data, onMerge }) {
   const {
     summary = {},
     endpoints = [],
@@ -202,6 +202,7 @@ export default function Results({ data }) {
     <summary>
       <strong>Summary</strong>
     </summary>
+    
     <div style={{ paddingTop: '.5rem' }}>
       <table>
         <tbody>
@@ -256,42 +257,113 @@ export default function Results({ data }) {
       )}
       {exportError && <p className="muted">Export error: {String(exportError)}</p>}
 
-      {/* Deep links — COLLAPSIBLE (preview top 12, de-duped by href) */}
-      <details open={!!browser?.deepLinks?.length}>
-        <summary>
-          <strong>Deep links</strong>{' '}
-          <span className="muted">({browser?.deepLinks?.length || 0})</span>
-        </summary>
-        <div style={{ paddingTop: '.5rem' }}>
-          {!browser?.deepLinks?.length && (
-            <p className="muted">None collected.</p>
-          )}
-          {!!browser?.deepLinks?.length && (
-            <table>
-              <thead>
-                <tr>
-                  <th>URL</th>
-                  <th>Text</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from(new Map((browser.deepLinks || []).map(l => [l.href, l])).values())
-                  .slice(0, 12)
-                  .map((l, i) => (
-                    <tr key={i}>
-                      <td className="clip">
-                        <a href={l.href} target="_blank" rel="noreferrer">
-                          <code title={l.href}>{clip(l.href, 72)}</code>
-                        </a>
-                      </td>
-                      <td className="clip">{l.text || '—'}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
+    {/* Deep links — COLLAPSIBLE (select & queue) */}
+<details open={!!browser?.deepLinks?.length}>
+  <summary>
+    <strong>Deep links</strong>{' '}
+    <span className="muted">({browser?.deepLinks?.length || 0})</span>
+  </summary>
+  <div style={{ paddingTop: '.5rem' }}>
+    {!browser?.deepLinks?.length && (
+      <p className="muted">None collected.</p>
+    )}
+    {!!browser?.deepLinks?.length && (
+      <>
+        <div className="row" style={{marginBottom:'.5rem'}}>
+          <button
+            onClick={async () => {
+              const rows = Array.from(document.querySelectorAll('[data-dl-row]'))
+              const picked = rows
+                .map(row => {
+                  const cb = row.querySelector('input[type="checkbox"]')
+                  if (!cb || !cb.checked) return null
+                  const href = row.getAttribute('data-href')
+                  return href ? { href, from: summary.seedUrl } : null
+                })
+                .filter(Boolean)
+              if (!picked.length) return
+
+              const body = {
+                base: data,                 // merge on server into current
+                links: picked,
+                sameOrigin: true,
+                maxDepth: 0,
+                maxPages: 6,
+                timeoutMs: 15000,
+                mode: 'both',
+                navAllowPatterns: []        // optional
+              }
+              try {
+                const res = await fetch('/api/queue-scan', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify(body)
+                })
+                const merged = await res.json()
+                if (typeof onMerge === 'function') onMerge(merged)
+              } catch (e) {
+                console.error('queue-scan failed', e)
+              }
+            }}
+          >
+            Queue selected links & merge
+          </button>
         </div>
-      </details>
+{/* Navigation trail — COLLAPSIBLE */}
+<details open={!!(data.navTrail && data.navTrail.length)}>
+  <summary>
+    <strong>Navigation trail</strong>{' '}
+    <span className="muted">({data.navTrail?.length || 0})</span>
+  </summary>
+  <div style={{ paddingTop: '.5rem' }}>
+    {!data.navTrail?.length && <p className="muted">No nav trail yet.</p>}
+    {!!data.navTrail?.length && (
+      <table>
+        <thead><tr><th>From</th><th>→</th><th>To</th><th>Title</th><th>When</th></tr></thead>
+        <tbody>
+          {data.navTrail.map((t, i) => (
+            <tr key={i}>
+              <td className="clip"><code title={t.from}>{clip(t.from, 48)}</code></td>
+              <td>▶</td>
+              <td className="clip"><code title={t.to}>{clip(t.to, 48)}</code></td>
+              <td className="clip"><code title={t.pageTitle || ''}>{clip(t.pageTitle || '—', 48)}</code></td>
+              <td className="small">{t.when?.replace('T',' ').replace('Z','') || ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</details>
+
+        <table>
+          <thead>
+            <tr>
+              <th style={{width:'2rem'}}></th>
+              <th>URL</th>
+              <th>Text</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(new Map((browser.deepLinks || []).map(l => [l.href, l])).values())
+              .slice(0, 50)
+              .map((l, i) => (
+                <tr key={i} data-dl-row data-href={l.href}>
+                  <td><input type="checkbox" /></td>
+                  <td className="clip">
+                    <a href={l.href} target="_blank" rel="noreferrer">
+                      <code title={l.href}>{clip(l.href, 72)}</code>
+                    </a>
+                  </td>
+                  <td className="clip">{l.text || '—'}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </>
+    )}
+  </div>
+</details>
 
       {/* By host — COLLAPSIBLE with sorting & empty-state */}
       <details open={Object.keys(byHost || {}).length > 0}>
