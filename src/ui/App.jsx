@@ -14,7 +14,11 @@ export default function App() {
     exportLogs: true,
     exportJson: true,
     exportNdjson: true,
-    exportCsv: false
+    exportCsv: false,
+    collectDeepLinks: true,
+    navAllowPatterns: "/search,/browse,/bap/,/recommerce/,/realestate/,/job/"
+
+    
   })
 
   async function run() {
@@ -35,7 +39,10 @@ export default function App() {
             ...(opts.exportJson ? ['json'] : []),
             ...(opts.exportNdjson ? ['ndjson'] : []),
             ...(opts.exportCsv ? ['csv'] : [])
-          ]
+          ],
+          navAllowPatterns: opts.collectDeepLinks
+            ? (opts.navAllowPatterns || '').split(',').map(s => s.trim()).filter(Boolean)
+            : []
         })
       })
       const json = await res.json()
@@ -126,6 +133,16 @@ export default function App() {
           <label htmlFor="ex">Export to /logs</label>
         </div>
         <div className="row" aria-label="Export formats">
+          <div className="flex" style={{marginTop:'1.35rem'}}>
+          <input id="dl" type="checkbox" checked={opts.collectDeepLinks}
+                 onChange={e=>setOpts(o=>({...o,collectDeepLinks:e.target.checked}))}/>
+          <label htmlFor="dl">Collect deep links (grid/browse/category)</label>
+        </div>
+        <div style={{width:'100%'}}>
+          <label>Allow patterns (CSV)</label>
+          <input style={{width:'100%'}} value={opts.navAllowPatterns}
+                 onChange={e=>setOpts(o=>({...o,navAllowPatterns:e.target.value}))}/>
+        </div>
           <div className="flex">
             <input
               id="exj"

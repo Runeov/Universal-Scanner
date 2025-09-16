@@ -4,7 +4,7 @@ import { urlRegex } from './util.mjs'
 import { summarizeArraysFromJson } from './array-summary.mjs'
 
 /**
- * Heuristic classifier for "API-like" requests.
+ * Heuristic classifier for "API-like" requests (JSON / GraphQL / XHR/fetch / api-ish paths).
  */
 function classifyRequest(req, resInfo) {
   const url = req.url()
@@ -103,8 +103,45 @@ function summarizeJsonGenerically(url, json) {
 }
 
 /**
+ * Collect deep links from DOM (including shadow roots), filtered by optional allow patterns.
+ * Targets grid-like and category-row-like containers by class substring heuristics.
+ */
+async function collectDeepLinks(page, patterns = []) {
+  return await page.evaluate((patterns) => {
+    const seen = new Set()
+    const out = []
+
+    function collectFrom(root) {
+      root.querySelectorAll('a[href]').forEach((a) => {
+        const href = a.getAttribute('href') || ''
+        try {
+          const abs = new URL(href, location.href).toString()
+          if (seen.has(abs)) return
+          if (patterns.length && !patterns.some((p) => abs.includes(p))) return
+          seen.add(abs)
+          out.push({ href: abs, text: (a.textContent || '').trim(), source: 'dom' })
+        } catch {}
+      })
+      root.querySelectorAll('*').forEach((el) => {
+        if (el.shadowRoot) collectFrom(el.shadowRoot)
+      })
+    }
+
+    // Heuristic roots: whole document + grid panels + tall category rows
+    const hintedRoots = [
+      document,
+      ...Array.from(document.querySelectorAll('[class*="grid-flow-col"][class*="grid-rows-2"]')),
+      ...Array.from(document.querySelectorAll('[class*="mt-32"][class*="border-b"][class*="s-border"]')),
+    ]
+    hintedRoots.forEach((r) => collectFrom(r))
+    return out
+  }, patterns)
+}
+
+/**
  * Headless-browse a page and capture all XHR/Fetch/GraphQL requests,
  * plus summarize arrays from JSON responses (universal; no API docs needed).
+ * Also collects "deep links" from the DOM to navigate further if desired.
  */
 export async function browseAndCapture({
   url,
@@ -113,7 +150,8 @@ export async function browseAndCapture({
   maxRequests = 400,
   sameOrigin = true,
   autoScroll = true,
-  storage, // optional: { localStorageKey: value, ... } to pre-auth a SPA
+  storage,            // optional: { localStorageKey: value, ... } to pre-auth a SPA
+  navAllowPatterns = [] // optional: array of substrings to whitelist deep links
 }) {
   const browser = await chromium.launch({ headless })
   const context = await browser.newContext({
@@ -131,9 +169,9 @@ export async function browseAndCapture({
   }
 
   // Accumulators
-  const requests = [] // light index of all requests
+  const requests = []        // light index of all requests
   const apiCandidates = []
-  const arraySummaries = [] // per-response array summaries (universal)
+  const arraySummaries = []  // per-response array summaries (universal)
   let session = null
 
   // Try CDP to enrich initiators when available (best-effort)
@@ -171,7 +209,7 @@ export async function browseAndCapture({
         frameUrl: req.frame()?.url() || null,
         resourceType: req.resourceType(),
         initiator: null,
-    })
+      })
     } catch {}
   })
 
@@ -194,16 +232,11 @@ export async function browseAndCapture({
         (headers['content-type'] || headers['Content-Type'] || '').toLowerCase()
 
       // Try to read JSON once and summarize universally
-      let size = 0
-      let bodySample = ''
       let entitySummary = null
 
       if (contentType.includes('json')) {
         try {
           const txt = await res.text() // note: body can be read once
-          size = Buffer.byteLength(txt, 'utf8')
-          bodySample = txt.slice(0, 2000)
-
           try {
             const parsed = JSON.parse(txt)
 
@@ -263,7 +296,6 @@ export async function browseAndCapture({
           opName,
           graphQLQuery,
           entitySummary,
-          // size/bodySample are omitted from return to keep payload small; add if needed
         })
       }
     } catch {
@@ -273,6 +305,18 @@ export async function browseAndCapture({
 
   // Navigate & settle
   await page.goto(url, { timeout: timeoutMs, waitUntil: 'domcontentloaded' })
+
+  // Best-effort consent auto-dismiss (e.g., FINN CMP)
+  await page
+    .getByRole('button', { name: /Godta alle|Accept all|Agree|OK/i })
+    .click({ timeout: 1500 })
+    .catch(() => {})
+  await page
+    .locator('button.message-button.primary, .sp_choice_type_11, [data-choice], .message-button')
+    .first()
+    .click({ timeout: 1500 })
+    .catch(() => {})
+
   try {
     await page.waitForLoadState('networkidle', { timeout: 4000 })
   } catch {}
@@ -302,6 +346,9 @@ export async function browseAndCapture({
   const domText = await page.content()
   const domUrls = Array.from(domText.matchAll(urlRegex)).map((m) => m[0])
 
+  // Collect deep links from relevant DOM areas (grid & category rows + global), with optional allow patterns
+  const deepLinks = await collectDeepLinks(page, Array.isArray(navAllowPatterns) ? navAllowPatterns : [])
+
   await browser.close()
 
   // Per-host summary for API candidates
@@ -323,5 +370,6 @@ export async function browseAndCapture({
     domUrls,
     byHost,
     arraySummaries, // UNIVERSAL: arrays found in JSON responses at runtime
+    deepLinks
   }
 }

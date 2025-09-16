@@ -1,0 +1,12 @@
+{
+  "default": {
+    "maxDepth": 2,
+    "maxPerPage": 10,
+    "allowPatterns": ["/search", "/browse", "/bap/", "/recommerce/", "/realestate/", "/job/"]
+  },
+  "www.finn.no": {
+    "maxDepth": 3,
+    "maxPerPage": 12,
+    "allowPatterns": ["/bap/browse", "/recommerce/", "/realestate/", "/job/", "/search", "/search.html"]
+  }
+}

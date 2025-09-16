@@ -26,7 +26,8 @@ app.post('/api/scan', async (req, res) => {
       mode = 'http', // 'http' | 'browser' | 'both'
       exportLogs,
       exportFormats,
-      exportDir
+      exportDir,
+      navAllowPatterns
     } = req.body || {}
 
     if (!url) return res.status(400).json({ error: 'Missing url' })
@@ -76,7 +77,8 @@ app.post('/api/scan', async (req, res) => {
       headless: true,
       timeoutMs: Math.max(Number(timeoutMs), 25000),
       sameOrigin: Boolean(sameOrigin),
-      autoScroll: true
+      autoScroll: true,
+      navAllowPatterns
     })
 
     // Browser-only mode

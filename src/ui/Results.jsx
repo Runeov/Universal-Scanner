@@ -192,90 +192,138 @@ export default function Results({ data }) {
 
   return (
   <div className="grid cols-2">
-    {/* Summary — COLLAPSIBLE */}
-    <section>
-      <details open>
+
+
+
+    
+   {/* Summary — COLLAPSIBLE */}
+<section>
+  <details open>
+    <summary>
+      <strong>Summary</strong>
+    </summary>
+    <div style={{ paddingTop: '.5rem' }}>
+      <table>
+        <tbody>
+          <tr>
+            <th>Seed</th>
+            <td><code>{summary.seedUrl || '-'}</code></td>
+          </tr>
+          <tr>
+            <th>Pages</th>
+            <td>{summary.pagesScanned ?? 0}</td>
+          </tr>
+          <tr>
+            <th>Endpoints</th>
+            <td>{summary.endpointsFound ?? 0}</td>
+          </tr>
+          <tr>
+            <th>Images</th>
+            <td>{summary.imagesFound ?? 0}</td>
+          </tr>
+          {summary.browserApiCandidates != null && (
+            <tr>
+              <th>Browser API calls</th>
+              <td>{summary.browserApiCandidates} / {summary.browserTotalRequests} total</td>
+            </tr>
+          )}
+          {browser?.deepLinks && (
+            <tr>
+              <th>Deep links (found)</th>
+              <td>{browser.deepLinks.length}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {exported && (
+        <>
+          <h4>Saved to disk</h4>
+          <table>
+            <thead><tr><th>Directory</th><th>Files</th></tr></thead>
+            <tbody>
+              <tr>
+                <td className="clip"><code>{exported.dir}</code></td>
+                <td>
+                  {exported.files.map((p, i) => (
+                    <div key={i} className="small clip" title={p}><code>{p}</code></div>
+                  ))}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </>
+      )}
+      {exportError && <p className="muted">Export error: {String(exportError)}</p>}
+
+      {/* Deep links — COLLAPSIBLE (preview top 12, de-duped by href) */}
+      <details open={!!browser?.deepLinks?.length}>
         <summary>
-          <strong>Summary</strong>
+          <strong>Deep links</strong>{' '}
+          <span className="muted">({browser?.deepLinks?.length || 0})</span>
+        </summary>
+        <div style={{ paddingTop: '.5rem' }}>
+          {!browser?.deepLinks?.length && (
+            <p className="muted">None collected.</p>
+          )}
+          {!!browser?.deepLinks?.length && (
+            <table>
+              <thead>
+                <tr>
+                  <th>URL</th>
+                  <th>Text</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from(new Map((browser.deepLinks || []).map(l => [l.href, l])).values())
+                  .slice(0, 12)
+                  .map((l, i) => (
+                    <tr key={i}>
+                      <td className="clip">
+                        <a href={l.href} target="_blank" rel="noreferrer">
+                          <code title={l.href}>{clip(l.href, 72)}</code>
+                        </a>
+                      </td>
+                      <td className="clip">{l.text || '—'}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </details>
+
+      {/* By host — COLLAPSIBLE with sorting & empty-state */}
+      <details open={Object.keys(byHost || {}).length > 0}>
+        <summary>
+          <strong>By host</strong>{' '}
+          <span className="muted">({Object.keys(byHost || {}).length})</span>
         </summary>
         <div style={{ paddingTop: '.5rem' }}>
           <table>
+            <thead><tr><th>Host</th><th>Count</th></tr></thead>
             <tbody>
-              <tr>
-                <th>Seed</th>
-                <td><code>{summary.seedUrl || '-'}</code></td>
-              </tr>
-              <tr>
-                <th>Pages</th>
-                <td>{summary.pagesScanned ?? 0}</td>
-              </tr>
-              <tr>
-                <th>Endpoints</th>
-                <td>{summary.endpointsFound ?? 0}</td>
-              </tr>
-              <tr>
-                <th>Images</th>
-                <td>{summary.imagesFound ?? 0}</td>
-              </tr>
-              {summary.browserApiCandidates != null && (
+              {Object.entries(byHost || {})
+                .sort((a, b) => b[1] - a[1])
+                .map(([h, c]) => (
+                  <tr key={h}>
+                    <td className="clip">{h}</td>
+                    <td>{c}</td>
+                  </tr>
+                ))}
+              {(!byHost || Object.keys(byHost).length === 0) && (
                 <tr>
-                  <th>Browser API calls</th>
-                  <td>{summary.browserApiCandidates} / {summary.browserTotalRequests} total</td>
+                  <td colSpan={2} className="muted">None</td>
                 </tr>
               )}
             </tbody>
           </table>
-
-          {exported && (
-            <>
-              <h4>Saved to disk</h4>
-              <table>
-                <thead><tr><th>Directory</th><th>Files</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td className="clip"><code>{exported.dir}</code></td>
-                    <td>
-                      {exported.files.map((p, i) => (
-                        <div key={i} className="small clip" title={p}><code>{p}</code></div>
-                      ))}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </>
-          )}
-          {exportError && <p className="muted">Export error: {String(exportError)}</p>}
-
-          {/* By host — COLLAPSIBLE with sorting & empty-state */}
-          <details open={Object.keys(byHost || {}).length > 0}>
-            <summary>
-              <strong>By host</strong>{' '}
-              <span className="muted">({Object.keys(byHost || {}).length})</span>
-            </summary>
-            <div style={{ paddingTop: '.5rem' }}>
-              <table>
-                <thead><tr><th>Host</th><th>Count</th></tr></thead>
-                <tbody>
-                  {Object.entries(byHost || {})
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([h, c]) => (
-                      <tr key={h}>
-                        <td className="clip">{h}</td>
-                        <td>{c}</td>
-                      </tr>
-                    ))}
-                  {(!byHost || Object.keys(byHost).length === 0) && (
-                    <tr>
-                      <td colSpan={2} className="muted">None</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </details>
         </div>
       </details>
-    </section>
+    </div>
+  </details>
+</section>
+
   
 
 
