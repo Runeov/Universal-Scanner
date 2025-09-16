@@ -1,0 +1,21 @@
+# deps / build
+node_modules/
+dist/
+build/
+coverage/
+.playwright/
+playwright/.cache/
+.vite/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# app exports
+logs/
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db
