@@ -257,8 +257,8 @@ export default function Results({ data, onMerge }) {
       )}
       {exportError && <p className="muted">Export error: {String(exportError)}</p>}
 
-    {/* Deep links — COLLAPSIBLE (select & queue) */}
-<details open={!!browser?.deepLinks?.length}>
+{/* Deep links — COLLAPSIBLE (select & queue, with Parent ▶ URL; parent clickable; child EXPANDABLE + COLLAPSED by default) */}
+<details> {/* collapsed by default */}
   <summary>
     <strong>Deep links</strong>{' '}
     <span className="muted">({browser?.deepLinks?.length || 0})</span>
@@ -269,7 +269,7 @@ export default function Results({ data, onMerge }) {
     )}
     {!!browser?.deepLinks?.length && (
       <>
-        <div className="row" style={{marginBottom:'.5rem'}}>
+        <div className="row" style={{ marginBottom: '.5rem' }}>
           <button
             onClick={async () => {
               const rows = Array.from(document.querySelectorAll('[data-dl-row]'))
@@ -278,20 +278,22 @@ export default function Results({ data, onMerge }) {
                   const cb = row.querySelector('input[type="checkbox"]')
                   if (!cb || !cb.checked) return null
                   const href = row.getAttribute('data-href')
-                  return href ? { href, from: summary.seedUrl } : null
+                  const from = row.getAttribute('data-parent') || (summary.seedUrl || '')
+                  return href ? { href, from } : null
                 })
                 .filter(Boolean)
+
               if (!picked.length) return
 
               const body = {
-                base: data,                 // merge on server into current
+                base: data,
                 links: picked,
                 sameOrigin: true,
                 maxDepth: 0,
                 maxPages: 6,
                 timeoutMs: 15000,
                 mode: 'both',
-                navAllowPatterns: []        // optional
+                navAllowPatterns: []
               }
               try {
                 const res = await fetch('/api/queue-scan', {
@@ -306,56 +308,74 @@ export default function Results({ data, onMerge }) {
               }
             }}
           >
-            Queue selected links & merge
+            Queue selected links &amp; merge
           </button>
         </div>
-{/* Navigation trail — COLLAPSIBLE */}
-<details open={!!(data.navTrail && data.navTrail.length)}>
-  <summary>
-    <strong>Navigation trail</strong>{' '}
-    <span className="muted">({data.navTrail?.length || 0})</span>
-  </summary>
-  <div style={{ paddingTop: '.5rem' }}>
-    {!data.navTrail?.length && <p className="muted">No nav trail yet.</p>}
-    {!!data.navTrail?.length && (
-      <table>
-        <thead><tr><th>From</th><th>→</th><th>To</th><th>Title</th><th>When</th></tr></thead>
-        <tbody>
-          {data.navTrail.map((t, i) => (
-            <tr key={i}>
-              <td className="clip"><code title={t.from}>{clip(t.from, 48)}</code></td>
-              <td>▶</td>
-              <td className="clip"><code title={t.to}>{clip(t.to, 48)}</code></td>
-              <td className="clip"><code title={t.pageTitle || ''}>{clip(t.pageTitle || '—', 48)}</code></td>
-              <td className="small">{t.when?.replace('T',' ').replace('Z','') || ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-</details>
 
         <table>
           <thead>
             <tr>
-              <th style={{width:'2rem'}}></th>
-              <th>URL</th>
+              <th style={{ width: '2rem' }}></th>
+              <th>Parent ▶ URL</th>
               <th>Text</th>
             </tr>
           </thead>
           <tbody>
-            {Array.from(new Map((browser.deepLinks || []).map(l => [l.href, l])).values())
-              .slice(0, 50)
+            {Array.from(new Map(
+              (browser.deepLinks || []).map(l => [l.href + '|' + (l.parent || ''), l])
+            ).values())
+              .slice(0, 80)
               .map((l, i) => (
-                <tr key={i} data-dl-row data-href={l.href}>
+                <tr key={i} data-dl-row data-href={l.href} data-parent={l.parent || ''}>
                   <td><input type="checkbox" /></td>
                   <td className="clip">
+                    {/* Parent (clickable) ▶ Child (clickable) */}
+                    {l.parent ? (
+                      <a href={l.parent} target="_blank" rel="noreferrer">
+                        <code title={(l.parentTitle ? l.parentTitle + ' — ' : '') + l.parent}>
+                          {clip(l.parentTitle || l.parent, 42)}
+                        </code>
+                      </a>
+                    ) : (
+                      <code>—</code>
+                    )}
+                    {' '}▶{' '}
                     <a href={l.href} target="_blank" rel="noreferrer">
-                      <code title={l.href}>{clip(l.href, 72)}</code>
+                      <code title={l.href}>{clip(l.href, 42)}</code>
                     </a>
                   </td>
-                  <td className="clip">{l.text || '—'}</td>
+                  <td className="clip">
+                    {/* Child details: EXPANDABLE & COLLAPSED by default */}
+                    <details>
+                      <summary>
+                        <code title={l.text || ''}>{clip(l.text || '—', 42)}</code>
+                      </summary>
+                      <div className="small" style={{ paddingTop: '.35rem' }}>
+                        <div>
+                          <strong>Parent:</strong>{' '}
+                          {l.parent ? (
+                            <a href={l.parent} target="_blank" rel="noreferrer">
+                              <code title={l.parent}>
+                                {clip(l.parentTitle || l.parent, 72)}
+                              </code>
+                            </a>
+                          ) : (
+                            <code>—</code>
+                          )}
+                        </div>
+                        <div>
+                          <strong>URL:</strong>{' '}
+                          <a href={l.href} target="_blank" rel="noreferrer">
+                            <code title={l.href}>{clip(l.href, 72)}</code>
+                          </a>
+                        </div>
+                        <div>
+                          <strong>Text:</strong>{' '}
+                          <code title={l.text || ''}>{clip(l.text || '—', 72)}</code>
+                        </div>
+                      </div>
+                    </details>
+                  </td>
                 </tr>
               ))}
           </tbody>
@@ -364,6 +384,10 @@ export default function Results({ data, onMerge }) {
     )}
   </div>
 </details>
+
+
+
+
 
       {/* By host — COLLAPSIBLE with sorting & empty-state */}
       <details open={Object.keys(byHost || {}).length > 0}>
