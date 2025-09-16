@@ -349,6 +349,9 @@ export async function browseAndCapture({
   // Collect deep links from relevant DOM areas (grid & category rows + global), with optional allow patterns
   const deepLinks = await collectDeepLinks(page, Array.isArray(navAllowPatterns) ? navAllowPatterns : [])
 
+  let pageTitle = ''
+try { pageTitle = await page.title() } catch {}
+
   await browser.close()
 
   // Per-host summary for API candidates
@@ -370,6 +373,7 @@ export async function browseAndCapture({
     domUrls,
     byHost,
     arraySummaries, // UNIVERSAL: arrays found in JSON responses at runtime
-    deepLinks
+    deepLinks,
+     pageTitle
   }
 }
