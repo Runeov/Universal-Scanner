@@ -199,7 +199,7 @@ export default function App() {
       <div className="card">
         {!data && <p className="muted">Results will show here.</p>}
         {data?.error && <pre>{data.error}</pre>}
-        {data?.summary && <Results data={data} />}
+        {data?.summary && <Results data={data} onMerge={(merged)=>setData(merged)} />}
       </div>
     </div>
   )
