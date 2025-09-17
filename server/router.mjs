@@ -1,9 +1,4 @@
-// server/router.mjs
-
-/**
- * Registry mapping base paths to lazy loaders.
- * Each loader returns { base, router } and is mounted on that base.
- */
+// server/router.mjs  (YOUR VERSION — KEEP)
 const REGISTRY = {
   '/api/health': async () => (await import('./routes/health.mjs')).loadRouter('/api/health'),
   '/api/scan': async () => (await import('./routes/scan.mjs')).loadRouter('/api/scan'),
@@ -12,12 +7,6 @@ const REGISTRY = {
   '/api/availability-sample': async () => (await import('./routes/availability-sample.mjs')).loadRouter('/api/availability-sample'),
 };
 
-/**
- * Mount only the provided base paths. Unknown bases are skipped with a warning.
- * @param {import('express').Express} app
- * @param {string[]} bases
- * @returns {Promise<string[]>}
- */
 export async function registerRoutes(app, bases = []) {
   const mounted = [];
   for (const base of bases) {

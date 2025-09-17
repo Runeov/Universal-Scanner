@@ -42,11 +42,6 @@ export function suggestParamMapFromUrl(url, H = REQUEST_KEY_HINTS) {
   };
 }
 
-/**
- * Build a URL by applying query parameters.
- * @param {string} base - Absolute URL string (e.g. "https://example.com/search")
- * @param {object} opts
- */
 export function buildUrlWithParams(base, opts) {
   const {
     checkInKey, checkOutKey, adultsKey, childrenKey, venueIdKey,
@@ -71,7 +66,5 @@ export function safeJson(text) {
     const t = (text || '').trim();
     if (!t) return null;
     return JSON.parse(t);
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
