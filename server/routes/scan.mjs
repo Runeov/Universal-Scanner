@@ -5,7 +5,7 @@ import { browseAndCapture } from '../browser.mjs';
 import { writeScanArtifacts } from '../filelog.mjs';
 import { sumByHost } from '../utils/merge.mjs';
 import { normalizeForUI } from '../utils/normalize-ui.mjs';
-
+import { CATEGORY_DEFS, DEFAULT_CATEGORY } from '../config/categories.mjs';
 
 
 
@@ -30,8 +30,12 @@ export function loadRouter(base = '/api/scan') {
         exportFormats,
         exportDir,
         navAllowPatterns,
-        storage, // optional: localStorage pre-seed for SPAs
+        storage, 
+        category: categoryIn
       } = req.body || {};
+const category = (categoryIn && CATEGORY_DEFS[categoryIn]) ? categoryIn : DEFAULT_CATEGORY;
+  const categoryDef = CATEGORY_DEFS[category];
+
 
       if (!url) return res.status(400).json({ error: 'Missing url' });
 
@@ -47,6 +51,7 @@ export function loadRouter(base = '/api/scan') {
         exportDir,
         navAllowPatterns,
         hasStorage: !!storage,
+        category
       });
 
       // Base HTTP scan
@@ -73,8 +78,10 @@ export function loadRouter(base = '/api/scan') {
             output = { ...output, exportError: String(e) };
           }
         }
-        output = normalizeForUI(output);
-        return res.json(output);
+        
+       output = normalizeForUI(output);
+output.summary = { ...(output.summary || {}), category };
+return res.json(output);
       }
 
       // Headless browser capture
@@ -110,8 +117,9 @@ export function loadRouter(base = '/api/scan') {
             output = { ...output, exportError: String(e) };
           }
         }
-        output = normalizeForUI(output);
-        return res.json(output);
+       output = normalizeForUI(output);
+output.summary = { ...(output.summary || {}), category };
+return res.json(output);
       }
 
       // Both: merge base + browser info
@@ -143,7 +151,8 @@ export function loadRouter(base = '/api/scan') {
         }
       }
       output = normalizeForUI(output);
-      return res.json(output);
+output.summary = { ...(output.summary || {}), category };
+return res.json(output);
     } catch (err) {
       console.error('[scan] fatal', err);
       res.status(500).json({ error: String((err && err.stack) || err) });

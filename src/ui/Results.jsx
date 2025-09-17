@@ -1,6 +1,14 @@
 // src/ui/Results.jsx
 import React, { useMemo } from 'react'
 
+const CATEGORY_LABELS = {
+  accommodation: 'Accommodation',
+  // auctions: 'Auctions',
+  // social: 'Social',
+};
+const toLabel = (v) => CATEGORY_LABELS[v] || (v ? v[0].toUpperCase() + v.slice(1) : '');
+
+
 function clip(text, max = 20) {
   if (!text || text.length <= max) return text
   const head = Math.ceil((max - 1) * 0.6)
@@ -110,6 +118,8 @@ function synthesizeFieldStatsFromSample(summary) {
 }
 
 export default function Results({ data, onMerge }) {
+  const category = data?.summary?.category || null;
+const categoryLabel = toLabel(category);
   const {
     summary = {},
     endpoints = [],
@@ -199,43 +209,59 @@ export default function Results({ data, onMerge }) {
    {/* Summary — COLLAPSIBLE */}
 <section>
   <details open>
-    <summary>
-      <strong>Summary</strong>
-    </summary>
+   <summary>
+  <strong>Summary</strong>
+  {categoryLabel ? <> <span className="badge" style={{ marginLeft: 6 }}>{categoryLabel}</span></> : null}
+</summary>
     
-    <div style={{ paddingTop: '.5rem' }}>
-      <table>
-        <tbody>
-          <tr>
-            <th>Seed</th>
-            <td><code>{summary.seedUrl || '-'}</code></td>
-          </tr>
-          <tr>
-            <th>Pages</th>
-            <td>{summary.pagesScanned ?? 0}</td>
-          </tr>
-          <tr>
-            <th>Endpoints</th>
-            <td>{summary.endpointsFound ?? 0}</td>
-          </tr>
-          <tr>
-            <th>Images</th>
-            <td>{summary.imagesFound ?? 0}</td>
-          </tr>
-          {summary.browserApiCandidates != null && (
-            <tr>
-              <th>Browser API calls</th>
-              <td>{summary.browserApiCandidates} / {summary.browserTotalRequests} total</td>
-            </tr>
-          )}
-          {browser?.deepLinks && (
-            <tr>
-              <th>Deep links (found)</th>
-              <td>{browser.deepLinks.length}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+   <div style={{ paddingTop: '.5rem' }}>
+  <table>
+    <tbody>
+      <tr>
+        <th>Seed</th>
+        <td><code>{summary.seedUrl || '-'}</code></td>
+      </tr>
+
+      {categoryLabel && (
+        <tr>
+          <th>Category</th>
+          <td><span className="badge">{categoryLabel}</span></td>
+        </tr>
+      )}
+
+      <tr>
+        <th>Pages</th>
+        <td>{summary.pagesScanned ?? 0}</td>
+      </tr>
+
+      <tr>
+        <th>Endpoints</th>
+        <td>{summary.endpointsFound ?? 0}</td>
+      </tr>
+
+      <tr>
+        <th>Images</th>
+        <td>{summary.imagesFound ?? 0}</td>
+      </tr>
+
+      {summary.browserApiCandidates != null && (
+        <tr>
+          <th>Browser API calls</th>
+          <td>
+            {summary.browserApiCandidates} / {summary.browserTotalRequests} total
+          </td>
+        </tr>
+      )}
+
+      {browser?.deepLinks && (
+        <tr>
+          <th>Deep links (found)</th>
+          <td>{browser.deepLinks.length}</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+
 
       {exported && (
         <>

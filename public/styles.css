@@ -26,3 +26,19 @@ pre{white-space:pre-wrap;word-wrap:break-word}
 @media (max-width: 800px){
   .grid.cols-2{grid-template-columns:1fr}
 }
+
+
+.navbar { background: #e00909; border-bottom: 1px solid #0a0808; }
+.nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; }
+.brand { font-weight: 700; }
+.nav-toggle { display: none; background: none; border: 1px solid #110101; border-radius: 6px; padding: 4px 8px; }
+.nav-list { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.nav-link { padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; background: none; cursor: pointer; color: #0b0b0c; }
+.nav-link.active { border-color: #ccc; background: #f6f6f6; }
+
+/* Mobile */
+@media (max-width: 700px) {
+  .nav-toggle { display: block; }
+  .nav-list { display: none; flex-direction: column; margin-top: 8px; }
+  .nav-list.open { display: flex; }
+}

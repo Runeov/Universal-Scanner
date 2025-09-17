@@ -23,6 +23,7 @@ export function normalizeForUI(payload = {}) {
       out.browser?.summary?.totalRequests ??
       out.browser?.summary?.browserTotalRequests ??
       0,
+      category: out.summary?.category || payload.summary?.category || null,
   };
 
   // Browser subtree

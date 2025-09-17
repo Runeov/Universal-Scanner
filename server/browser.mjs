@@ -7,110 +7,13 @@ import {
   harvestBookingFromJson,
   collectBookingDomFallbacks,
 } from './booking-srp.mjs'
+import { DESKTOP_UA } from './consts/user-agents.mjs';
+import { applyStealth } from './utils/stealth.mjs';
+import { gotoResilient } from './utils/nav.mjs';
+import { classifyRequest } from './utils/http-classify.mjs';
+import { summarizeJsonGenerically } from './utils/json-summary.mjs';
+import { collectDeepLinks } from './dom/links.mjs';
 
-const DESKTOP_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
-
-async function applyStealth(ctx) {
-  await ctx.addInitScript(() => {
-    try {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false })
-      window.chrome = window.chrome || { runtime: {} }
-      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] })
-      Object.defineProperty(navigator, 'platform', { get: () => 'Win32' })
-      const orig = navigator.permissions && navigator.permissions.query
-      if (orig) {
-        navigator.permissions.query = (p) =>
-          p && p.name === 'notifications'
-            ? Promise.resolve({ state: Notification.permission })
-            : orig(p)
-      }
-    } catch {}
-  })
-}
-
-async function gotoResilient(page, url, opts = {}) {
-  const waits = opts.waits || ['domcontentloaded', 'commit', 'load']
-  const timeouts = opts.timeouts || [8000, 8000, 25000]
-  let lastErr
-  for (let i = 0; i < waits.length; i++) {
-    const to = timeouts[i] != null ? timeouts[i] : timeouts[timeouts.length - 1]
-    try {
-      console.log(`[browser] goto ${url} waitUntil=${waits[i]} timeout=${to}`)
-      await page.goto(url, { waitUntil: waits[i], timeout: to })
-      return
-    } catch (e) {
-      lastErr = e
-    }
-  }
-  throw lastErr
-}
-
-function classifyRequest(req, resInfo) {
-  const url = req.url()
-  const method = req.method()
-  const rtype = req.resourceType()
-  const ct = (resInfo?.headers?.['content-type'] || resInfo?.headers?.['Content-Type'] || '').toLowerCase()
-  let path = ''
-  try { path = new URL(url).pathname } catch {}
-  const isApiPath = /\b(api|graphql|gql|search|results|availability|gateway|v\d+)\b/i.test(path)
-  return {
-    apiCandidate: Boolean(ct.includes('json') || /\+json/.test(ct) || rtype === 'xhr' || rtype === 'fetch' || isApiPath),
-    isJson: ct.includes('json') || /\+json/.test(ct),
-    isGraphQL: /graphql|gql/i.test(url) || (method === 'POST' && /application\/(json|graphql)/i.test(req.headers()['content-type'] || '')),
-    isXhrFetch: rtype === 'xhr' || rtype === 'fetch',
-    isApiLikePath: isApiPath,
-    contentType: ct,
-  }
-}
-
-function pick(obj, keys) {
-  const out = {}
-  for (const k of keys) {
-    const v = k.includes('.') ? k.split('.').reduce((o, p) => (o ? o[p] : undefined), obj) : obj[k]
-    if (v !== undefined) out[k] = v
-  }
-  return out
-}
-function inferRoot(json) {
-  if (json && typeof json === 'object' && Array.isArray(json.data)) return { root: json.data, path: 'data' }
-  if (Array.isArray(json)) return { root: json, path: '$' }
-  if (json && typeof json === 'object' && json.data && typeof json.data === 'object') return { root: [json.data], path: 'data(object)' }
-  return { root: null, path: null }
-}
-function summarizeJsonGenerically(url, json) {
-  const { root, path } = inferRoot(json)
-  if (!root || !Array.isArray(root) || root.length === 0) return null
-  let cols
-  if (root.some((x) => x && typeof x === 'object' && !Array.isArray(x))) {
-    const set = new Set()
-    for (const it of root.slice(0, 10)) if (it && typeof it === 'object' && !Array.isArray(it)) Object.keys(it).forEach((k) => set.add(k))
-    cols = Array.from(set).slice(0, 12)
-  } else cols = []
-  return { kind: 'json', path, count: root.length, columns: cols, sample: root.slice(0, 3).map((x) => (cols.length ? pick(x, cols) : x)) }
-}
-
-async function collectDeepLinks(page, patterns = []) {
-  return await page.evaluate((patterns) => {
-    const seen = new Set()
-    const out = []
-    function collectFrom(root) {
-      root.querySelectorAll('a[href]').forEach((a) => {
-        const href = a.getAttribute('href') || ''
-        try {
-          const abs = new URL(href, location.href).toString()
-          if (seen.has(abs)) return
-          if (patterns.length && !patterns.some((p) => abs.includes(p))) return
-          seen.add(abs)
-          out.push({ href: abs, text: (a.textContent || '').trim(), parent: location.href, parentTitle: document.title || '' })
-        } catch {}
-      })
-      root.querySelectorAll('*').forEach((el) => el.shadowRoot && collectFrom(el.shadowRoot))
-    }
-    ;[document].forEach((r) => collectFrom(r))
-    return out
-  }, patterns)
-}
 
 export async function browseAndCapture({
   url,
