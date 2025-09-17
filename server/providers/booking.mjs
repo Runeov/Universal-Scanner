@@ -1,10 +1,3 @@
-// server/providers/booking.mjs
-// Booking.com provider (site/HTML/observed JSON). API variants can be added later.
-// Goals:
-//  - discoverFromScan: emit candidates from endpoints/deep links with Booking hints
-//  - suggestParamMapFromUrl: map checkin/checkout/adults keys from SRP links
-//  - interpret: interpret JSON-ish payloads we might capture (best-effort)
-
 export const name = 'booking';
 
 const STRONG_PATH = /(searchresults|availability|blockavailability|srp|availability\.)/i;

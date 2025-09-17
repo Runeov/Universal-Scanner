@@ -1,4 +1,3 @@
-// server/occupancy/hints.mjs
 export const CATEGORY = 'accommodation';
 
 export const REQUEST_KEY_HINTS = {

@@ -1,4 +1,3 @@
-// server/providers/index.mjs
 import * as booking from './booking.mjs';
 
 export const adapters = [
@@ -17,5 +16,4 @@ export function pickAdapterByUrl(url = '') {
   const name = providerNameForUrl(url);
   return adapters.find((a) => a.name === name) || null;
 }
-
 
