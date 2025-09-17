@@ -27,20 +27,20 @@ async function fetchText(url, timeoutMs = 15000) {
   }
 }
 
-function extractFromHtml(baseUrl, html, prov, out) {
+function extractFromHtml(BASE_URL, html, prov, out) {
   const $ = cheerio.load(html)
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href')
-    const url = absolute(baseUrl, href)
+    const url = absolute(BASE_URL, href)
     if (url) out.links.add(url)
   })
 
   $('img[src]').each((_, el) => {
     const src = $(el).attr('src')
-    const url = absolute(baseUrl, src)
+    const url = absolute(BASE_URL, src)
     if (url) {
-      prov.add(url, `html @ ${baseUrl}`)
+      prov.add(url, `html @ ${BASE_URL}`)
       out.images.add(url)
     }
   })
@@ -48,9 +48,9 @@ function extractFromHtml(baseUrl, html, prov, out) {
     const srcset = $(el).attr('srcset') || ''
     srcset.split(',').forEach(item => {
       const [u] = item.trim().split(' ')
-      const url = absolute(baseUrl, u)
+      const url = absolute(BASE_URL, u)
       if (url) {
-        prov.add(url, `html/srcset @ ${baseUrl}`)
+        prov.add(url, `html/srcset @ ${BASE_URL}`)
         out.images.add(url)
       }
     })
@@ -62,12 +62,12 @@ function extractFromHtml(baseUrl, html, prov, out) {
       const nodes = Array.isArray(json) ? json : [json]
       for (const n of nodes) {
         const info = detectSelfDescribing(n)
-        if (info) out.selfdesc.push({ url: baseUrl, info })
+        if (info) out.selfdesc.push({ url: BASE_URL, info })
         const imgs = Array.isArray(n.image) ? n.image : (n.image ? [n.image] : [])
         imgs.filter(x => typeof x === 'string').forEach(u => {
-      const abs = absolute(baseUrl, u)
+      const abs = absolute(BASE_URL, u)
           if (abs) {
-            prov.add(abs, `jsonld @ ${baseUrl}`)
+            prov.add(abs, `jsonld @ ${BASE_URL}`)
             out.images.add(abs)
           }
         })
@@ -81,26 +81,26 @@ function extractFromHtml(baseUrl, html, prov, out) {
   }
 }
 
-function extractFromJson(baseUrl, text, prov, out) {
+function extractFromJson(BASE_URL, text, prov, out) {
   let obj
   try { obj = JSON.parse(text) } catch { return }
 
   const info = detectSelfDescribing(obj)
-  if (info) out.selfdesc.push({ url: baseUrl, info })
+  if (info) out.selfdesc.push({ url: BASE_URL, info })
 
   const arrays = collectArrayStats(obj)
-  arrays.forEach(a => out.arrays.push({ ...a, sourceUrl: baseUrl }))
+  arrays.forEach(a => out.arrays.push({ ...a, sourceUrl: BASE_URL }))
 
   for (const { url, path } of jsonStringUrls(obj)) {
     out.endpoints.add(url)
     if (/(?:\.jpg|\.jpeg|\.png|\.webp|\.gif)(?:\?|$)/i.test(url)) {
-      prov.add(url, `json@${baseUrl} ${path}`)
+      prov.add(url, `json@${BASE_URL} ${path}`)
       out.images.add(url)
     }
   }
 }
 
-function extractFromXml(baseUrl, text, prov, out) {
+function extractFromXml(BASE_URL, text, prov, out) {
   let obj
   try {
     const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '' })
@@ -116,7 +116,7 @@ function extractFromXml(baseUrl, text, prov, out) {
         if (/^https?:\/\//i.test(val)) {
           out.endpoints.add(val)
           if (/(?:\.jpg|\.jpeg|\.png|\.webp|\.gif)(?:\?|$)/i.test(val)) {
-            prov.add(val, `xml@${baseUrl} ${k}`)
+            prov.add(val, `xml@${BASE_URL} ${k}`)
             out.images.add(val)
           }
         }

@@ -56,7 +56,7 @@ export function discoverFromScan(scanResult) {
  * decide occupancy=TRUE when the response matches your predicate.
  *
  * @param {{
- *   baseUrl: string,                  // e.g. "https://api.example.com/availability"
+ *   BASE_URL: string,                  // e.g. "https://api.example.com/availability"
  *   method?: "GET"|"POST",            // default GET
  *   paramMap: {                       // how to pass dates/search params
  *     checkIn: string,                // e.g. "checkin"
@@ -80,7 +80,7 @@ export function discoverFromScan(scanResult) {
  */
 export async function extractOccupancy(cfg) {
   const {
-    baseUrl,
+    BASE_URL,
     method = "GET",
     paramMap,
     venueId,
@@ -90,12 +90,12 @@ export async function extractOccupancy(cfg) {
     throttleMs = 120
   } = cfg;
 
-  if (!baseUrl || !paramMap?.checkIn || !paramMap?.checkOut || !Array.isArray(dates)) {
-    throw new Error("extractOccupancy config missing baseUrl/paramMap/dates");
+  if (!BASE_URL || !paramMap?.checkIn || !paramMap?.checkOut || !Array.isArray(dates)) {
+    throw new Error("extractOccupancy config missing BASE_URL/paramMap/dates");
   }
 
   const buildUrl = (ci, co) => {
-    const url = new URL(baseUrl);
+    const url = new URL(BASE_URL);
     const qp = url.searchParams;
     qp.set(paramMap.checkIn, ci);
     qp.set(paramMap.checkOut, co);

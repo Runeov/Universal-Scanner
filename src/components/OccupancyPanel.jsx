@@ -57,7 +57,7 @@ export default function OccupancyPanel({ initialScan = null, category = 'accommo
   const tomorrow = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() + 1); return toISO(d);
   }, []);
-  const [baseUrl, setBaseUrl] = useState("");
+  const [BASE_URL, setBASE_URL] = useState("");
   const [checkInKey, setCheckInKey] = useState("checkin");
   const [checkOutKey, setCheckOutKey] = useState("checkout");
   const [adultsKey, setAdultsKey] = useState("adults");
@@ -130,9 +130,9 @@ function prefillParamKeysFromUrl(u, categoryName = 'accommodation') {
     } catch (e) {
       setDiscoverErr(String(e.message || e));
       setCandidates([]);
-      if (!baseUrl && Array.isArray(data.candidates) && data.candidates.length) {
+      if (!BASE_URL && Array.isArray(data.candidates) && data.candidates.length) {
   const first = data.candidates[0];
-  setBaseUrl(first.url || "");
+  setBASE_URL(first.url || "");
   prefillParamKeysFromUrl(first.url);
 }
     } finally {
@@ -153,7 +153,7 @@ function prefillParamKeysFromUrl(u, categoryName = 'accommodation') {
         extraObj = o;
       }
       const payload = {
-        baseUrl,
+        BASE_URL,
         method: "GET",
         paramMap: {
           checkIn: checkInKey,
@@ -191,7 +191,7 @@ function prefillParamKeysFromUrl(u, categoryName = 'accommodation') {
     }
   }
 
-  function useCandidate(url) {setBaseUrl(url || "");
+  function useCandidate(url) {setBASE_URL(url || "");
 prefillParamKeysFromUrl(url, category);
 document.getElementById("extract-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -268,7 +268,7 @@ useEffect(() => {
         <div style={{ display: "grid", gap: 8 }}>
           <label>
             Base URL
-            <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.example.com/availability" />
+            <input value={BASE_URL} onChange={(e) => setBASE_URL(e.target.value)} placeholder="https://api.example.com/availability" />
           </label>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
@@ -346,7 +346,7 @@ useEffect(() => {
           </div>
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={doExtract} disabled={extractBusy || !baseUrl}>
+            <button onClick={doExtract} disabled={extractBusy || !BASE_URL}>
               {extractBusy ? "Extracting…" : "Extract"}
             </button>
             {extractErr && <span style={{ color: "crimson" }}>{extractErr}</span>}

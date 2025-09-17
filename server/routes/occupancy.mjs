@@ -20,11 +20,11 @@ export function loadRouter(base = '/api/occupancy') {
   router.post('/extract', async (req, res) => {
     req.setTimeout?.(10 * 60 * 1000);
     try {
-      const { baseUrl, method, paramMap, venueId, adults, dates, interpret, throttleMs } = req.body || {};
-      if (!baseUrl || !paramMap?.checkIn || !paramMap?.checkOut || !Array.isArray(dates)) {
-        return res.status(400).json({ ok: false, error: 'Required: baseUrl, paramMap.checkIn, paramMap.checkOut, dates[]' });
+      const { BASE_URL, method, paramMap, venueId, adults, dates, interpret, throttleMs } = req.body || {};
+      if (!BASE_URL || !paramMap?.checkIn || !paramMap?.checkOut || !Array.isArray(dates)) {
+        return res.status(400).json({ ok: false, error: 'Required: BASE_URL, paramMap.checkIn, paramMap.checkOut, dates[]' });
       }
-      const out = await extractOccupancy({ baseUrl, method, paramMap, venueId, adults, dates, interpret, throttleMs });
+      const out = await extractOccupancy({ BASE_URL, method, paramMap, venueId, adults, dates, interpret, throttleMs });
       res.json({ ok: true, ...out });
     } catch (err) {
       res.status(500).json({ ok: false, error: err?.message || String(err) });
