@@ -1,469 +1,71 @@
 // server/index.mjs
-import express from 'express'
-import cors from 'cors'
-import { scanSite } from './scan.mjs'
-import { browseAndCapture } from './browser.mjs'
-import { writeScanArtifacts } from './filelog.mjs'
+import express from 'express';
+import cors from 'cors';
+import { registerRoutes } from './router.mjs';
+import path from 'node:path';
 
-
-
-// Boot-time diagnostics for export paths
-console.log('[server] cwd =', process.cwd())
-console.log('[server] LOG_DIR =', process.env.LOG_DIR || '(not set)')
-
-const app = express()
-app.use(cors())
-app.use(express.json({ limit: '10mb' }))
-
-app.get('/api/health', (_req, res) => res.json({ ok: true }))
-
-// ---------- helpers for merging ----------
-function unionBy(arrA = [], arrB = [], keyFn) {
-  const map = new Map()
-  for (const x of arrA) map.set(keyFn(x), x)
-  for (const y of arrB) map.set(keyFn(y), y)
-  return Array.from(map.values())
+// Ensure LOG_DIR is always set (one place, one time)
+if (!process.env.LOG_DIR || !process.env.LOG_DIR.trim()) {
+  process.env.LOG_DIR = path.join(process.cwd(), 'logs');
 }
-function sumByHost(a = {}, b = {}) {
-  const out = { ...a }
-  for (const [h, c] of Object.entries(b || {})) out[h] = (out[h] || 0) + c
-  return out
-}
-function mergeResults(base = {}, add = {}) {
-  const out = { ...base }
+console.log('[logs] LOG_DIR =', process.env.LOG_DIR);
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason);
+});
 
-  // Summary (recompute some totals loosely)
-  out.summary = {
-    ...(out.summary || {}),
-    seedUrl: out.summary?.seedUrl || add.summary?.seedUrl || '',
-    pagesScanned: (out.summary?.pagesScanned || 0) + (add.summary?.pagesScanned || 0),
-    endpointsFound: (out.summary?.endpointsFound || 0) + (add.summary?.endpointsFound || 0),
-    imagesFound: (out.summary?.imagesFound || 0) + (add.summary?.imagesFound || 0),
-    browserApiCandidates:
-      (out.summary?.browserApiCandidates || 0) +
-      (add.summary?.browserApiCandidates || add.browser?.summary?.apiCandidates || 0),
-    browserTotalRequests:
-      (out.summary?.browserTotalRequests || 0) +
-      (add.summary?.browserTotalRequests || add.browser?.summary?.totalRequests || 0),
-  }
 
-  // Flat unions
-  out.endpoints = unionBy(out.endpoints || [], add.endpoints || [], (e) => e.url)
-  out.images = unionBy(out.images || [], add.images || [], (s) => s)
-  out.provenance = unionBy(out.provenance || [], add.provenance || [], (p) => p.imageUrl)
-  out.selfDescribing = unionBy(
-    out.selfDescribing || [],
-    add.selfDescribing || [],
-    (s) => `${s.url}|${s.info?.kind || ''}|${s.info?.meta || ''}`
-  )
-  out.arrays = unionBy(
-    out.arrays || [],
-    add.arrays || [],
-    (a) => `${a.sourceUrl || ''}|${a.path}`
-  )
-
-  // By host
-  out.byHost = sumByHost(out.byHost, add.byHost)
-
-  // Logs
-  out.logs = [...(out.logs || []), ...(add.logs || [])]
-
-  // Browser subtree (tolerate browser-only payloads)
-  const aB = add.browser || add
-  if (aB && (aB.apiCandidates || aB.arraySummaries || aB.deepLinks)) {
-    out.browser = out.browser || {
-      apiCandidates: [],
-      arraySummaries: [],
-      byHost: {},
-      deepLinks: [],
-    }
-    if (aB.apiCandidates) {
-      out.browser.apiCandidates = unionBy(
-        out.browser.apiCandidates || [],
-        aB.apiCandidates || [],
-        (r) => `${r.method}|${r.url}|${r.status}`
-      )
-    }
-    if (aB.arraySummaries) {
-      out.browser.arraySummaries = unionBy(
-        out.browser.arraySummaries || [],
-        aB.arraySummaries || [],
-        (s) => `${s.atUrl}|${s.path}`
-      )
-    }
-    if (aB.byHost) {
-      out.browser.byHost = sumByHost(out.browser.byHost, aB.byHost)
-    }
-    if (aB.deepLinks) {
-      out.browser.deepLinks = unionBy(
-        out.browser.deepLinks || [],
-        aB.deepLinks || [],
-        (l) => l.href || JSON.stringify(l)
-      )
-    }
-    if (aB.pageTitle && !out.pageTitle) out.pageTitle = aB.pageTitle
-  }
-
-  // Nav trail (append)
-  if (add.navTrail && add.navTrail.length) {
-    out.navTrail = [...(out.navTrail || []), ...add.navTrail]
-  }
-
-  return out
-}
-
-// ---------- main scan endpoint ----------
-app.post('/api/scan', async (req, res) => {
-  try {
-    const {
-      url,
-      maxDepth = 1,
-      sameOrigin = true,
-      maxPages = 20,
-      timeoutMs = 15000,
-      mode = 'http', // 'http' | 'browser' | 'both'
-      exportLogs,
-      exportFormats,
-      exportDir,
-      navAllowPatterns,
-      storage, // optional: localStorage pre-seed for SPAs
-    } = req.body || {}
-
-    if (!url) return res.status(400).json({ error: 'Missing url' })
-
-    console.log('[scan] incoming', {
-      url,
-      maxDepth,
-      sameOrigin,
-      maxPages,
-      timeoutMs,
-      mode,
-      exportLogs,
-      exportFormats,
-      exportDir,
-      navAllowPatterns,
-      hasStorage: !!storage,
-    })
-
-    // Base HTTP scan
-    const base = await scanSite({
-      seedUrl: url,
-      maxDepth: Number(maxDepth),
-      sameOrigin: Boolean(sameOrigin),
-      maxPages: Number(maxPages),
-      timeoutMs: Number(timeoutMs),
-    })
-
-    // HTTP-only mode
-    if (mode === 'http') {
-      let output = base
-      if (exportLogs) {
-        const formats = Array.isArray(exportFormats) ? exportFormats : ['json', 'ndjson']
-        try {
-          console.log('[scan] exporting (http) with formats', formats, 'dir', exportDir || '(default)')
-          const exported = await writeScanArtifacts(output, { formats, dir: exportDir })
-          output = { ...output, exported }
-          console.log('[scan] export OK (http)', exported)
-        } catch (e) {
-          console.error('[scan] export FAIL (http)', e)
-          output = { ...output, exportError: String(e) }
-        }
-      }
-      return res.json(output)
-    }
-
-    // Headless browser capture
-    const browserPart = await browseAndCapture({
-      url,
-      headless: true,
-      timeoutMs: Math.max(Number(timeoutMs), 25000),
-      sameOrigin: Boolean(sameOrigin),
-      autoScroll: true,
-      navAllowPatterns,
-      storage,
-    })
-
-    // Browser-only mode
-    if (mode === 'browser') {
-      let output = { browser: browserPart, summary: { seedUrl: url, browserApiCandidates: browserPart.summary.apiCandidates, browserTotalRequests: browserPart.summary.totalRequests } }
-      if (exportLogs) {
-        const formats = Array.isArray(exportFormats) ? exportFormats : ['json', 'ndjson']
-        try {
-          console.log('[scan] exporting (browser) with formats', formats, 'dir', exportDir || '(default)')
-          const exported = await writeScanArtifacts(output, { formats, dir: exportDir })
-          output = { ...output, exported }
-          console.log('[scan] export OK (browser)', exported)
-        } catch (e) {
-          console.error('[scan] export FAIL (browser)', e)
-          output = { ...output, exportError: String(e) }
-        }
-      }
-      return res.json(output)
-    }
-
-    // Both: merge base + browser info
-    const merged = {
-      ...base,
-      browser: browserPart,
-      summary: {
-        ...base.summary,
-        browserApiCandidates: browserPart.summary.apiCandidates,
-        browserTotalRequests: browserPart.summary.totalRequests,
-      },
-      byHost: {
-        ...base.byHost,
-        ...browserPart.byHost,
-      },
-    }
-
-    let output = merged
-    if (exportLogs) {
-      const formats = Array.isArray(exportFormats) ? exportFormats : ['json', 'ndjson']
-      try {
-        console.log('[scan] exporting (both) with formats', formats, 'dir', exportDir || '(default)')
-        const exported = await writeScanArtifacts(output, { formats, dir: exportDir })
-        output = { ...output, exported }
-        console.log('[scan] export OK (both)', exported)
-      } catch (e) {
-        console.error('[scan] export FAIL (both)', e)
-        output = { ...output, exportError: String(e) }
-      }
-    }
-    return res.json(output)
-  } catch (err) {
-    console.error('[scan] fatal', err)
-    res.status(500).json({ error: String(err && err.stack || err) })
-  }
-})
-
-// ---------- queue/merge endpoint with nav trail ----------
-app.post('/api/queue-scan', async (req, res) => {
-  try {
-    const {
-      base,                 // optional: existing result to merge into
-      links = [],           // [{href, from?, label?}] or ["https://..."]
-      sameOrigin = true,
-      maxDepth = 0,
-      maxPages = 6,
-      timeoutMs = 15000,
-      mode = 'both',        // http | browser | both
-      navAllowPatterns = [],
-      storage,              // optional: localStorage pre-seed
-    } = req.body || {}
-
-    if (!Array.isArray(links) || links.length === 0) {
-      return res.status(400).json({ error: 'links[] required' })
-    }
-
-    let merged = base || {}
-    const navTrail = []
-
-    // process links sequentially (polite)
-    for (const raw of links.slice(0, 25)) {
-      const href = typeof raw === 'string' ? raw : raw.href
-      const from =
-        typeof raw === 'string'
-          ? (base?.summary?.seedUrl || '')
-          : (raw.from || base?.summary?.seedUrl || '')
-      if (!href) continue
-
-      // HTTP pass
-      const httpPart = await scanSite({
-        seedUrl: href,
-        maxDepth: Number(maxDepth),
-        sameOrigin: Boolean(sameOrigin),
-        maxPages: Number(maxPages),
-        timeoutMs: Number(timeoutMs),
-      })
-
-      // Optional browser pass
-      let browserPart = null
-      if (mode === 'both' || mode === 'browser') {
-        browserPart = await browseAndCapture({
-          url: href,
-          headless: true,
-          timeoutMs: Math.max(Number(timeoutMs), 25000),
-          sameOrigin: Boolean(sameOrigin),
-          autoScroll: true,
-          navAllowPatterns,
-          storage,
-        })
-      }
-
-      const perLink =
-        mode === 'http'
-          ? httpPart
-          : mode === 'browser'
-            ? {
-                browser: browserPart,
-                summary: {
-                  seedUrl: href,
-                  browserApiCandidates: browserPart?.summary?.apiCandidates || 0,
-                  browserTotalRequests: browserPart?.summary?.totalRequests || 0,
-                },
-                byHost: browserPart?.byHost || {},
-              }
-            : {
-                ...httpPart,
-                browser: browserPart,
-                summary: {
-                  ...(httpPart.summary || {}),
-                  browserApiCandidates: browserPart?.summary?.apiCandidates || 0,
-                  browserTotalRequests: browserPart?.summary?.totalRequests || 0,
-                },
-                byHost: sumByHost(httpPart.byHost, browserPart?.byHost || {}),
-              }
-
-      // Nav edge
-      navTrail.push({
-        from,
-        to: href,
-        pageTitle: browserPart?.pageTitle || '',
-        kind: mode,
-        when: new Date().toISOString(),
-      })
-      perLink.navTrail = navTrail.slice(-1)
-
-      // Merge
-      merged = mergeResults(merged, perLink)
-    }
-
-    return res.json(merged)
-  } catch (err) {
-    console.error('[queue-scan] fatal', err)
-    res.status(500).json({ error: String(err && err.stack || err) })
-  }
-})
-
-// REPLACE EVERYTHING FROM THE '{' AFTER THAT LINE UP TO ITS MATCHING '});' WITH THIS:
-app.post('/api/availability-sample', async (req, res) => {
-  try {
-    const { place = "Tromsø", dates = [], nights = 1, maxRetries = 1 } = req.body || {};
-    if (!Array.isArray(dates) || dates.length === 0) {
-      return res.status(400).json({ error: "dates[] required" });
-    }
-
-    // ── total timer for this capture batch
-    const __rid = Math.random().toString(36).slice(2, 7);
-    const __label = `[avail ${place.trim()} ${__rid}]`;
-    const __t0 = Date.now();
-    console.time(__label);
-    console.log(__label, 'start', { nights, dates: dates.length });
-
-    const trimmedPlace = String(place || '').trim();
-    const poolSize = 2; // small pool reduces blocks
-    const jitter = () => new Promise(r => setTimeout(r, 200 + Math.random() * 300));
-
-    let universeSizeHint = 0;
-    const failed = [];
-
-    function buildSrpUrl(dstr) {
-      const ci = new Date(dstr);
-      const co = new Date(ci); co.setDate(ci.getDate() + Number(nights || 1));
-      const checkin  = ci.toISOString().slice(0,10);
-      const checkout = co.toISOString().slice(0,10);
-      // fixed language to stabilize DOM text patterns
-      return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(trimmedPlace)}&checkin=${checkin}&checkout=${checkout}&group_adults=2&no_rooms=1&lang=en-us`;
-    }
-
-    async function sampleDate(dstr) {
-      const srp = buildSrpUrl(dstr);
-      const checkin = new Date(dstr).toISOString().slice(0,10);
-      let total = null;
-      let uniCount = 0;
-
-      // Attempt 0 — fast path (DOM-only, quick timeouts)
-      try {
-        const cap = await browseAndCapture({
-          url: srp,
-          headless: true,
-          timeoutMs: 12000,   // overall guard; fastMode uses much shorter per-attempts
-          sameOrigin: false,
-          autoScroll: false,
-          preferHttp1: true,  // start HTTP/1.1
-          navQuick: true,     // commit-only short nav timeouts
-          fastMode: true      // DOM-only, no CDP/listeners
-        });
-        const totals = cap.browserSearch?.searchTotals || [];
-        total = totals.length ? totals[totals.length - 1].total : null;
-        uniCount = cap.browserSearch?.universeIdsCount || 0;
-      } catch {}
-
-      // Attempt 1 — standard path (one retry) if nothing found and retry allowed
-      if (total == null && maxRetries > 0) {
-        try {
-          const cap = await browseAndCapture({
-            url: srp,
-            headless: true,
-            timeoutMs: 20000,
-            sameOrigin: false,
-            autoScroll: true,
-            preferHttp1: true,   // skip HTTP/2
-            navQuick: false,     // allow longer settle
-            fastMode: false      // enable JSON listeners as backup
-          });
-          const totals = cap.browserSearch?.searchTotals || [];
-          total = totals.length ? totals[totals.length - 1].total : null;
-          uniCount = Math.max(uniCount, cap.browserSearch?.universeIdsCount || 0);
-        } catch {}
-      }
-
-      if (total == null) {
-        failed.push(checkin);
-        return { date: checkin, available: null };
-      }
-      if (uniCount > universeSizeHint) universeSizeHint = uniCount;
-      return { date: checkin, available: total };
-    }
-
-    async function runPool(arr, limit) {
-      const out = new Array(arr.length);
-      let idx = 0;
-      const workers = Array.from({ length: Math.min(limit, arr.length) }, async () => {
-        while (true) {
-          const i = idx++;
-          if (i >= arr.length) break;
-          out[i] = await sampleDate(arr[i]);
-          await jitter();
-        }
-      });
-      await Promise.all(workers);
-      return out;
-    }
-
-    const samplesRaw = await runPool(dates, poolSize);
-
-    // Denominator heuristic
-    const universeSize = Math.max(
-      universeSizeHint,
-      ...samplesRaw.map(s => s.available || 0)
-    ) || 0;
-
-    const samples = samplesRaw.map(s => ({
-      ...s,
-      occupancyPct: (s.available != null && universeSize > 0)
-        ? Math.max(0, Math.min(1, 1 - s.available / universeSize))
-        : null
-    }));
-
-    const vals = samples.map(s => s.occupancyPct).filter(v => v != null);
-    const avgOccupancyPct = vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
-
-    const durationMs = Date.now() - __t0;
-    console.timeEnd(__label);
-    console.log(__label, 'done', { durationMs, universeSize, failed: failed.length });
-
-    return res.json({ place: trimmedPlace, nights, universeSize, samples, avgOccupancyPct, failed, durationMs });
-  } catch (err) {
-    console.error('[availability-sample] fatal', err);
-    res.status(500).json({ error: String(err && err.stack || err) });
-  }
-}); 
+// Boot-time diagnostics
+console.log('[server] cwd =', process.cwd());
+console.log('[server] LOG_DIR =', process.env.LOG_DIR || '(not set)');
 
 
 
 
-const PORT = process.env.PORT || 5174
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+// Which base paths to mount (comma-separated). Default mounts all known routes.
+const ROUTES_TO_MOUNT = (process.env.ROUTES || [
+  '/api/health',
+  '/api/scan',
+  '/api/queue-scan',
+  '/api/occupancy',
+  '/api/availability-sample',
+].join(','))
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Mount routers
+const mounted = await registerRoutes(app, ROUTES_TO_MOUNT);
+console.log('[router] mounted:', mounted);
+
+// 404 + error handlers
+app.use((req, res) => {
+  res.status(404).json({ ok: false, error: 'Not found', path: req.originalUrl });
+});
+app.use((err, _req, res, _next) => {
+  console.error('[unhandled-error]', err);
+  res.status(500).json({ ok: false, error: 'Internal Server Error' });
+});
+
+const PORT = process.env.PORT || 5174;
 app.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`)
-})
+  console.log(`[server] listening on http://localhost:${PORT}`);
+});
+
+
+
+
+
+  
+
+
+
+
+
+

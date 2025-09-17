@@ -1,11 +1,12 @@
 // server/filelog.mjs
 import { promises as fs } from 'node:fs'
-import path from 'node:path'
+import path from 'node:path';
 
 export const defaultLogDir =
   process.env.LOG_DIR && process.env.LOG_DIR.trim()
     ? process.env.LOG_DIR
-    : path.join(process.cwd(), 'logs')
+    : path.join(process.cwd(), 'logs');
+    
 
 // boot-time hint
 console.log('[logs] process.cwd() =', process.cwd())
