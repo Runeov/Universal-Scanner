@@ -262,6 +262,8 @@ const categoryLabel = toLabel(category);
     </tbody>
   </table>
 
+<button className="btn btn-info">Scan</button>
+<button className="btn btn-info">Scan</button>
 
       {exported && (
         <>

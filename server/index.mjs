@@ -5,14 +5,14 @@ const PORT = Number(process.env.PORT ?? 5174);
 const HOST = process.env.HOST ?? '127.0.0.1';
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Optional bare health endpoint
 app.get('/healthz', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 // Mount only routes that actually exist right now:
-const BASES = ['/api/health','/api/scan','/api/occupancy'];
+const BASES = ['/api/health','/api/scan','/api/occupancy','/api/availability-sample'];
 const mounted = await registerRoutes(app, BASES);
 console.log('[router] mounted:', mounted.join(', '));
 

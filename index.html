@@ -1,17 +1,49 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
     <title>Universal Scanner</title>
-    <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <header>
-      <h1>Universal Scanner</h1>
-      <p class="muted">Enter a URL. Server crawls, detects endpoints, arrays, self-describing docs, and image provenance.</p>
+
+  <body class="bg-base-200 text-base-content">
+    <!-- Optional top bar shown before React mounts (safe to keep or remove) -->
+    <header class="navbar bg-base-100 border-b border-base-200">
+      <div class="navbar-start">
+        <span class="btn btn-ghost text-lg font-bold normal-case">
+          Universal Scanner
+        </span>
+      </div>
+      <div class="navbar-center hidden md:flex"></div>
+      <div class="navbar-end"></div>
     </header>
-    <main id="root"></main>
+
+    <!-- Intro note (non-blocking, remove if you don't want static content) -->
+    <section class="max-w-5xl mx-auto px-4 py-4">
+      <div class="alert bg-base-100 border border-base-200 shadow">
+        <div>
+          <span class="font-semibold">Tip:</span>
+          <span class="opacity-70">
+            Enter a URL. The server crawls it and detects endpoints, arrays,
+            self-describing docs, and image provenance.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- React mounts here -->
+    <main id="root" class="min-h-[60vh]"></main>
+
+    <!-- React entry -->
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- No CSS <link> tag here: Tailwind v4 is loaded via src/index.css in your JS -->
+    <!-- Make sure src/main.jsx imports "./index.css" which contains:
+         @import "tailwindcss";
+         @plugin "daisyui";
+    -->
   </body>
 </html>

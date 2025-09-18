@@ -119,230 +119,314 @@ export default function App() {
     {/* Navbar + tabs */}
     <Navbar
       items={[
-        { key: 'home', label: 'Home' },
-        { key: 'scan', label: 'Scan' },
-        { key: 'queue', label: 'Queue' },
-        { key: 'occupancy', label: 'Occupancy' },
+        { key: "home", label: "Home" },
+        { key: "scan", label: "Scan" },
+        { key: "queue", label: "Queue" },
+        { key: "occupancy", label: "Occupancy" },
       ]}
       activeKey={activeTab}
       onChange={setActiveTab}
     />
 
     {/* Occupancy tab content */}
-    {activeTab === 'occupancy' && (
-      <div style={{ padding: 16 }}>
+    {activeTab === "occupancy" && (
+      <div className="p-4">
         <OccupancyPanel initialScan={data} category={opts.category} />
       </div>
     )}
 
     {/* Original UI (shown when NOT on the Occupancy tab) */}
-    {activeTab !== 'occupancy' && (
-      <div className="container">
+    {activeTab !== "occupancy" && (
+      <div className="container mx-auto max-w-6xl p-4 space-y-3">
         {/* Scanner Controls */}
-        <div className="card grid cols-2">
-          <div>
-            <label>Seed URL</label>
-            <input
-              style={{ width: '100%' }}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+        <div className="card bg-base-100 border border-base-200 shadow">
+          <div className="card-body space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Seed URL</span>
+                </div>
+                <input
+                  className="input input-bordered w-full"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </label>
 
-<div>
-  <label>Category</label><br />
-  <select
-    value={opts.category}
-    onChange={(e) => setOpts((o) => ({ ...o, category: e.target.value }))}
-  >
-    <option value="accommodation">Accommodation</option>
-    {/* add more later:
-      <option value="auctions">Auctions</option>
-      <option value="social">Social</option>
-    */}
-  </select>
-</div>
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Category</span>
+                </div>
+                <select
+                  className="select select-bordered w-full"
+                  value={opts.category}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, category: e.target.value }))
+                  }
+                >
+                  <option value="accommodation">Accommodation</option>
+                  {/* add more later:
+                    <option value="auctions">Auctions</option>
+                    <option value="social">Social</option>
+                  */}
+                </select>
+              </label>
+            </div>
 
-          <div className="row">
-            <div>
-              <label>Max depth</label><br />
-              <input
-                type="number"
-                min="0"
-                max="3"
-                value={opts.maxDepth}
-                onChange={(e) => setOpts((o) => ({ ...o, maxDepth: Number(e.target.value) }))}
-              />
-            </div>
-            <div>
-              <label>Max pages</label><br />
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={opts.maxPages}
-                onChange={(e) => setOpts((o) => ({ ...o, maxPages: Number(e.target.value) }))}
-              />
-            </div>
-            <div className="flex" style={{ marginTop: '1.35rem' }}>
-              <input
-                id="so"
-                type="checkbox"
-                checked={opts.sameOrigin}
-                onChange={(e) => setOpts((o) => ({ ...o, sameOrigin: e.target.checked }))}
-              />
-              <label htmlFor="so">Same-origin only</label>
-            </div>
-            <div className="flex" style={{ marginTop: '1.35rem' }}>
-              <input
-                id="ub"
-                type="checkbox"
-                checked={opts.useBrowser}
-                onChange={(e) => setOpts((o) => ({ ...o, useBrowser: e.target.checked }))}
-              />
-              <label htmlFor="ub">Use headless browser (capture XHR/Fetch)</label>
-            </div>
-          </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Max depth</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="3"
+                  className="input input-bordered"
+                  value={opts.maxDepth}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, maxDepth: Number(e.target.value) }))
+                  }
+                />
+              </label>
 
-          <div className="flex" style={{ marginTop: '.25rem' }}>
-            <input
-              id="ex"
-              type="checkbox"
-              checked={opts.exportLogs}
-              onChange={(e) => setOpts((o) => ({ ...o, exportLogs: e.target.checked }))}
-            />
-            <label htmlFor="ex">Export to /logs</label>
-          </div>
-          <div className="row" aria-label="Export formats">
-            <div className="flex">
-              <input
-                id="exj"
-                type="checkbox"
-                checked={opts.exportJson}
-                onChange={(e) => setOpts((o) => ({ ...o, exportJson: e.target.checked }))}
-              />
-              <label htmlFor="exj">JSON</label>
-            </div>
-            <div className="flex">
-              <input
-                id="exn"
-                type="checkbox"
-                checked={opts.exportNdjson}
-                onChange={(e) => setOpts((o) => ({ ...o, exportNdjson: e.target.checked }))}
-              />
-              <label htmlFor="exn">NDJSON</label>
-            </div>
-            <div className="flex">
-              <input
-                id="exc"
-                type="checkbox"
-                checked={opts.exportCsv}
-                onChange={(e) => setOpts((o) => ({ ...o, exportCsv: e.target.checked }))}
-              />
-              <label htmlFor="exc">CSV (byHost)</label>
-            </div>
-          </div>
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Max pages</span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="input input-bordered"
+                  value={opts.maxPages}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, maxPages: Number(e.target.value) }))
+                  }
+                />
+              </label>
 
-          <div className="flex">
-            <button onClick={run} disabled={busy}>
-              {busy ? 'Scanning…' : 'Scan'}
-            </button>
-            {data && (
-     <button
-       style={{ marginLeft: '0.5rem' }}
-       onClick={() => setActiveTab('occupancy')}
-       title="Open Occupancy tab with current scan JSON"
-     >
-       Analyze occupancy →
-     </button>
-   )}
-            {data?.summary && (
-              <span className="small">Scanned {data.summary.pagesScanned} page(s)</span>
-            )}
-            {data?.summary?.browserApiCandidates != null && (
-              <span className="small"> · Browser API calls: {data.summary.browserApiCandidates}</span>
-            )}
+              <label htmlFor="so" className="label cursor-pointer mt-6 md:mt-8">
+                <span className="label-text mr-2">Same-origin only</span>
+                <input
+                  id="so"
+                  type="checkbox"
+                  className="checkbox"
+                  checked={opts.sameOrigin}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, sameOrigin: e.target.checked }))
+                  }
+                />
+              </label>
+
+              <label htmlFor="ub" className="label cursor-pointer mt-6 md:mt-8">
+                <span className="label-text mr-2">
+                  Use headless browser (capture XHR/Fetch)
+                </span>
+                <input
+                  id="ub"
+                  type="checkbox"
+                  className="checkbox"
+                  checked={opts.useBrowser}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, useBrowser: e.target.checked }))
+                  }
+                />
+              </label>
+            </div>
+
+            <label htmlFor="ex" className="label cursor-pointer">
+              <span className="label-text mr-2">Export to /logs</span>
+              <input
+                id="ex"
+                type="checkbox"
+                className="checkbox"
+                checked={opts.exportLogs}
+                onChange={(e) =>
+                  setOpts((o) => ({ ...o, exportLogs: e.target.checked }))
+                }
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-4" aria-label="Export formats">
+              <label htmlFor="exj" className="label cursor-pointer">
+                <span className="label-text mr-2">JSON</span>
+                <input
+                  id="exj"
+                  type="checkbox"
+                  className="checkbox"
+                  checked={opts.exportJson}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, exportJson: e.target.checked }))
+                  }
+                />
+              </label>
+
+              <label htmlFor="exn" className="label cursor-pointer">
+                <span className="label-text mr-2">NDJSON</span>
+                <input
+                  id="exn"
+                  type="checkbox"
+                  className="checkbox"
+                  checked={opts.exportNdjson}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, exportNdjson: e.target.checked }))
+                  }
+                />
+              </label>
+
+              <label htmlFor="exc" className="label cursor-pointer">
+                <span className="label-text mr-2">CSV (byHost)</span>
+                <input
+                  id="exc"
+                  type="checkbox"
+                  className="checkbox"
+                  checked={opts.exportCsv}
+                  onChange={(e) =>
+                    setOpts((o) => ({ ...o, exportCsv: e.target.checked }))
+                  }
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button className="btn btn-info" onClick={run} disabled={busy}>
+                {busy ? "Scanning…" : "Scan"}
+              </button>
+
+              {data && (
+                <button
+                  className="btn btn-outline btn-info"
+                  onClick={() => setActiveTab("occupancy")}
+                  title="Open Occupancy tab with current scan JSON"
+                >
+                  Analyze occupancy →
+                </button>
+              )}
+
+              {data?.summary && (
+                <span className="text-sm opacity-70">
+                  Scanned {data.summary.pagesScanned} page(s)
+                </span>
+              )}
+              {data?.summary?.browserApiCandidates != null && (
+                <span className="text-sm opacity-70">
+                  • Browser API calls: {data.summary.browserApiCandidates}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-
-        <div style={{ height: '.75rem' }} />
 
         {/* December Availability Sample Card */}
-        <div className="card">
-          <h3>December Availability Sample</h3>
-          <div className="row" style={{ marginBottom: '.5rem' }}>
-            <div>
-              <label>Place</label><br />
-              <input value={place} onChange={(e) => setPlace(e.target.value)} />
-            </div>
-            <div>
-              <label>Nights</label><br />
-              <input
-                type="number"
-                min="1"
-                max="14"
-                value={nights}
-                onChange={(e) => setNights(Number(e.target.value) || 1)}
-              />
-            </div>
-            <div className="flex" style={{ alignItems: 'end' }}>
-              <button onClick={runDecemberSample} disabled={sampling}>
-                {sampling ? 'Sampling…' : 'Run December sample'}
-              </button>
-            </div>
-          </div>
+        <div className="card bg-base-100 border border-base-200 shadow">
+          <div className="card-body space-y-4">
+            <h3 className="card-title">December Availability Sample</h3>
 
-          {!sample && (
-            <p className="muted">
-              Run a sample to estimate December occupancy for <strong>{place}</strong>.
-            </p>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Place</span>
+                </div>
+                <input
+                  className="input input-bordered"
+                  value={place}
+                  onChange={(e) => setPlace(e.target.value)}
+                />
+              </label>
 
-          {sample && (
-            <>
-              <p className="small">
-                Universe (est.): <strong>{sample.universeSize}</strong> venues · Avg occupancy{' '}
-                <strong>
-                  {sample.avgOccupancyPct != null
-                    ? Math.round(sample.avgOccupancyPct * 1000) / 10
-                    : '—'}
-                  %
-                </strong>
+              <label className="form-control">
+                <div className="label">
+                  <span className="label-text">Nights</span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="14"
+                  className="input input-bordered"
+                  value={nights}
+                  onChange={(e) =>
+                    setNights(Number(e.target.value) || 1)
+                  }
+                />
+              </label>
+
+              <div className="flex items-end">
+                <button
+                  className="btn btn-primary"
+                  onClick={runDecemberSample}
+                  disabled={sampling}
+                >
+                  {sampling ? "Sampling…" : "Run December sample"}
+                </button>
+              </div>
+            </div>
+
+            {!sample && (
+              <p className="text-sm opacity-70">
+                Run a sample to estimate December occupancy for{" "}
+                <strong>{place}</strong>.
               </p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Available</th>
-                    <th>Occupancy%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sample.samples.map((s, i) => (
-                    <tr key={i}>
-                      <td>{s.date}</td>
-                      <td>{s.available ?? '—'}</td>
-                      <td>
-                        {s.occupancyPct != null
-                          ? Math.round(s.occupancyPct * 1000) / 10 + '%'
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+            )}
+
+            {sample && (
+              <>
+                <p className="text-sm">
+                  Universe (est.):{" "}
+                  <strong>{sample.universeSize}</strong> venues · Avg occupancy{" "}
+                  <strong>
+                    {sample.avgOccupancyPct != null
+                      ? Math.round(sample.avgOccupancyPct * 1000) / 10
+                      : "—"}
+                    %
+                  </strong>
+                </p>
+
+                <div className="overflow-x-auto">
+                  <table className="table table-zebra">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Available</th>
+                        <th>Occupancy%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sample.samples.map((s, i) => (
+                        <tr key={i}>
+                          <td className="whitespace-nowrap">{s.date}</td>
+                          <td className="whitespace-nowrap">
+                            {s.available ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            {s.occupancyPct != null
+                              ? Math.round(s.occupancyPct * 1000) / 10 + "%"
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div style={{ height: '.75rem' }} />
-
         {/* Results */}
-        <div className="card">
-          {!data && <p className="muted">Results will show here.</p>}
-          {data?.error && <pre>{data.error}</pre>}
-          {data?.summary && <Results data={data} onMerge={(merged) => setData(merged)} />}
+        <div className="card bg-base-100 border border-base-200 shadow">
+          <div className="card-body space-y-3">
+            {!data && <p className="text-sm opacity-70">Results will show here.</p>}
+            {data?.error && (
+              <pre className="bg-base-200 text-base-content p-3 rounded">
+                {data.error}
+              </pre>
+            )}
+            {data?.summary && (
+              <Results data={data} onMerge={(merged) => setData(merged)} />
+            )}
+          </div>
         </div>
       </div>
     )}
